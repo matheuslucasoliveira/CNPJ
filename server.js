@@ -1,155 +1,260 @@
 const express = require('express');
+const cors = require('cors');
+const axios = require('axios');
+const moment = require('moment');
+const path = require('path');
+
 const app = express();
 const port = 3001;
 
-// Configuração do Express
+
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Função para formatar CNPJ
-const formatCNPJ = (cnpj) => {
-    return cnpj.replace(/\D/g, '');
+
+function validarCNPJ(cnpj) {
+    
+    cnpj = cnpj.replace(/[^\d]/g, '');
+    
+    
+    if (cnpj.length !== 14) {
+        console.log('CNPJ inválido: não tem 14 dígitos');
+        return false;
+    }
+
+    
+    if (/^(\d)\1+$/.test(cnpj)) {
+        console.log('CNPJ inválido: todos os dígitos iguais');
+        return false;
+    }
+
+    
+    let soma = 0;
+    let peso = 5;
+    for (let i = 0; i < 12; i++) {
+        soma += parseInt(cnpj.charAt(i)) * peso;
+        peso = peso === 2 ? 9 : peso - 1;
+    }
+    let digito = 11 - (soma % 11);
+    if (digito > 9) digito = 0;
+    if (parseInt(cnpj.charAt(12)) !== digito) {
+        console.log('CNPJ inválido: primeiro dígito verificador incorreto');
+        return false;
+    }
+
+    
+    soma = 0;
+    peso = 6;
+    for (let i = 0; i < 13; i++) {
+        soma += parseInt(cnpj.charAt(i)) * peso;
+        peso = peso === 2 ? 9 : peso - 1;
+    }
+    digito = 11 - (soma % 11);
+    if (digito > 9) digito = 0;
+    if (parseInt(cnpj.charAt(13)) !== digito) {
+        console.log('CNPJ inválido: segundo dígito verificador incorreto');
+        return false;
+    }
+
+    return true;
+}
+
+
+const validarCNPJMiddleware = (req, res, next) => {
+    console.log('Body recebido:', req.body);
+    const { cnpj } = req.body;
+    
+    if (!cnpj) {
+        console.log('CNPJ não fornecido');
+        return res.status(400).json({
+            error: 'CNPJ não fornecido',
+            code: 'MISSING_CNPJ'
+        });
+    }
+
+    console.log('CNPJ recebido:', cnpj);
+    const cnpjLimpo = cnpj.replace(/[^\d]/g, '');
+    console.log('CNPJ limpo:', cnpjLimpo);
+
+    if (!validarCNPJ(cnpjLimpo)) {
+        return res.status(400).json({
+            error: 'CNPJ inválido',
+            code: 'INVALID_CNPJ',
+            details: 'O CNPJ informado não é válido. Verifique se foi digitado corretamente.'
+        });
+    }
+
+    
+    req.cnpjLimpo = cnpjLimpo;
+    next();
 };
 
-// Rota para consulta de CNPJ
-app.post('/consultar', async (req, res) => {
-    const startTime = new Date();
-    const cnpj = formatCNPJ(req.body.cnpj);
+
+const errorHandler = (err, req, res, next) => {
+    console.error('Erro:', err);
+
+    
+    if (err.name === 'ValidationError') {
+        return res.status(400).json({
+            error: 'Dados inválidos',
+            details: err.message,
+            code: 'VALIDATION_ERROR'
+        });
+    }
+
+    
+    if (err.code === 'ECONNREFUSED') {
+        return res.status(503).json({
+            error: 'Serviço temporariamente indisponível',
+            code: 'SERVICE_UNAVAILABLE'
+        });
+    }
+
+    
+    res.status(500).json({
+        error: 'Erro interno do servidor',
+        code: 'INTERNAL_SERVER_ERROR'
+    });
+};
+
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+
+app.post('/consultar', validarCNPJMiddleware, async (req, res) => {
+    const cnpj = req.cnpjLimpo;
+    const startTime = moment().format('YYYY-MM-DD HH:mm:ss');
 
     try {
-        // Simular resposta da API para teste
+        
+        const random = Math.random();
+        
+        
+        if (random < 0.1) {
+            return res.status(404).json({
+                error: 'CNPJ não encontrado',
+                code: 'CNPJ_NOT_FOUND'
+            });
+        }
+
+        
+        if (random < 0.2) {
+            throw new Error('SERVICE_UNAVAILABLE');
+        }
+
+        
+        if (random < 0.3) {
+            return res.status(429).json({
+                error: 'Muitas requisições. Tente novamente em alguns segundos.',
+                code: 'RATE_LIMIT_EXCEEDED',
+                retryAfter: 5
+            });
+        }
+
+        
         const mockResponse = {
             status: "OK",
-            message: "Consulta realizada com sucesso",
-            billing: {
-                free: true,
-                database: "comercial"
-            },
-            data: {
-                cnpj: cnpj,
-                razao_social: "EMPRESA TESTE LTDA",
-                nome_fantasia: "TESTE COMPANY",
-                tipo: "MATRIZ",
-                porte: "DEMAIS",
-                natureza_juridica: "206-2 - Sociedade Empresária Limitada",
-                abertura: "2010-03-02",
-                capital_social: 100000,
-                logradouro: "RUA TESTE",
-                numero: "123",
-                complemento: "SALA 1",
-                bairro: "CENTRO",
-                municipio: "SAO PAULO",
-                uf: "SP",
-                cep: "01234-567",
-                telefone: "(11) 1234-5678",
-                email: "contato@teste.com",
-                atividade_principal: {
-                    code: "62.01-5-01",
-                    text: "Desenvolvimento de programas de computador sob encomenda"
-                },
-                atividades_secundarias: [
-                    {
-                        code: "62.02-3-00",
-                        text: "Desenvolvimento e licenciamento de programas de computador customizáveis"
-                    }
-                ],
-                situacao: "ATIVA",
-                data_situacao: "2010-03-02",
-                motivo_situacao: "",
-                situacao_especial: "",
-                data_situacao_especial: "",
-                qsa: [
-                    {
-                        nome: "JOAO DA SILVA",
-                        qualificacao: "Sócio-Administrador",
-                        pais_origem: "Brasil"
-                    }
-                ],
-                optante_simples: true,
-                data_opcao_simples: "2010-03-02",
-                data_exclusao_simples: null,
-                optante_mei: false
+            ultima_atualizacao: "2024-03-13",
+            cnpj: cnpj,
+            tipo: "MATRIZ",
+            porte: "MEDIO",
+            nome: "Empresa Teste",
+            fantasia: "Teste",
+            abertura: "2020-01-01",
+            atividade_principal: [
+                {
+                    text: "Desenvolvimento de software",
+                    code: "62.01-5-00"
+                }
+            ],
+            atividades_secundarias: [
+                {
+                    text: "Consultoria em TI",
+                    code: "62.03-1-00"
+                }
+            ],
+            natureza_juridica: "213-5 - Empresário Individual",
+            logradouro: "Rua Teste",
+            numero: "123",
+            complemento: "Sala 1",
+            bairro: "Centro",
+            municipio: "São Paulo",
+            uf: "SP",
+            cep: "01001-000",
+            email: "contato@empresa.com",
+            telefone: "(11) 1234-5678",
+            situacao: "ATIVA",
+            data_situacao: "2024-01-01",
+            capital_social: "100000.00",
+            quadro_socios: [
+                {
+                    nome: "João Silva",
+                    qual: "Sócio-Administrador",
+                    pais_origem: "Brasil",
+                    nome_rep_legal: "",
+                    qual_rep_legal: ""
+                }
+            ],
+            qsa: [],
+            extra: {
+                data_consulta: moment().format('YYYY-MM-DD HH:mm:ss'),
+                tempo_resposta: "0.5s"
             }
         };
 
-        const data = mockResponse;
-        const endTime = new Date();
+        const endTime = moment().format('YYYY-MM-DD HH:mm:ss');
+        const duration = moment.duration(moment(endTime).diff(moment(startTime))).asSeconds();
 
-        // Formatação dos dados
-        const formattedData = {
+        // Adicionar metadados da consulta
+        const response = {
+            ...mockResponse,
             metadata: {
-                start_time: startTime.toLocaleString(),
-                end_time: endTime.toLocaleString(),
-                duration: (endTime - startTime) / 1000,
-                status: data.status,
-                message: data.message,
-                billing: data.billing
-            },
-            company: {
-                basic: {
-                    cnpj: data.data.cnpj,
-                    razao_social: data.data.razao_social,
-                    nome_fantasia: data.data.nome_fantasia,
-                    tipo: data.data.tipo,
-                    porte: data.data.porte,
-                    natureza_juridica: data.data.natureza_juridica,
-                    abertura: data.data.abertura,
-                    capital_social: data.data.capital_social
-                },
-                address: {
-                    logradouro: data.data.logradouro,
-                    numero: data.data.numero,
-                    complemento: data.data.complemento,
-                    bairro: data.data.bairro,
-                    municipio: data.data.municipio,
-                    uf: data.data.uf,
-                    cep: data.data.cep
-                },
-                contact: {
-                    telefone: data.data.telefone,
-                    email: data.data.email
-                },
-                activities: {
-                    primary: data.data.atividade_principal,
-                    secondary: data.data.atividades_secundarias
-                },
-                situation: {
-                    status: data.data.situacao,
-                    data_situacao: data.data.data_situacao,
-                    motivo_situacao: data.data.motivo_situacao,
-                    situacao_especial: data.data.situacao_especial,
-                    data_situacao_especial: data.data.data_situacao_especial
-                },
-                partners: data.data.qsa,
-                special_regimes: {
-                    simples: {
-                        optante_simples: data.data.optante_simples,
-                        data_opcao_simples: data.data.data_opcao_simples,
-                        data_exclusao_simples: data.data.data_exclusao_simples
-                    },
-                    mei: {
-                        optante_mei: data.data.optante_mei
-                    }
+                start_time: startTime,
+                end_time: endTime,
+                duration: `${duration.toFixed(2)}s`,
+                billing: {
+                    credits: 1,
+                    cost: 0.05
                 }
             }
         };
 
-        res.json(formattedData);
+        res.status(200).json(response);
     } catch (error) {
-        res.status(500).json({
-            error: true,
-            message: 'Erro ao consultar CNPJ'
-        });
+       
+        if (error.message === 'SERVICE_UNAVAILABLE') {
+            res.status(503).json({
+                error: 'Serviço temporariamente indisponível',
+                code: 'SERVICE_UNAVAILABLE'
+            });
+        } else {
+            throw error;
+        }
     }
 });
 
-// Rota principal
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/public/index.html');
+
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'healthy',
+        timestamp: moment().format('YYYY-MM-DD HH:mm:ss')
+    });
 });
 
-// Iniciar servidor
+
+app.use((req, res) => {
+    res.status(404).json({
+        error: 'Rota não encontrada',
+        code: 'ROUTE_NOT_FOUND'
+    });
+});
+
+app.use(errorHandler);
+
+
 app.listen(port, () => {
     console.log(`Servidor rodando em http://localhost:${port}`);
 }); 

@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta CNPJ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4895ef;
+            --background-color: #f8f9fa;
+            --card-background: #ffffff;
+            --text-color: #2b2d42;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+
+        .container {
+            max-width: 1200px;
+        }
+
+        .card {
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            background-color: var(--card-background);
+            margin-bottom: 1.5rem;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+        }
+
+        .form-control {
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            border: 2px solid #e9ecef;
+        }
+
+        .form-control:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.25);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border: none;
+            border-radius: 8px;
+            padding: 0.8rem 2rem;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            position: relative;
+            height: 100px;
+        }
+
+        .loading::after {
+            content: "";
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            top: 50%;
+            left: 50%;
+            margin: -25px 0 0 -25px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+        }
+
+        .section-title {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--accent-color);
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .info-value {
+            color: #666;
+        }
+
+        .badge {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .badge-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .badge-success {
+            background-color: #2ecc71;
+            color: white;
+        }
+
+        .socio-card {
+            padding: 1rem;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .metadata {
+            font-size: 0.9rem;
+            color: #666;
+            background-color: rgba(67, 97, 238, 0.05);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .nav-tabs {
+            border-bottom: 2px solid var(--accent-color);
+            margin-bottom: 1rem;
+        }
+
+        .nav-tabs .nav-link {
+            border: none;
+            color: var(--text-color);
+            padding: 0.8rem 1.5rem;
+            font-weight: 500;
+        }
+
+        .nav-tabs .nav-link:hover {
+            border: none;
+            color: var(--primary-color);
+        }
+
+        .nav-tabs .nav-link.active {
+            border: none;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1 class="text-center mb-4">
+                <i class="fas fa-building me-2"></i>Consulta CNPJ
+            </h1>
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <form id="consultaForm" class="d-flex gap-2">
+                        <input type="text" id="cnpj" name="cnpj" class="form-control" placeholder="Digite o CNPJ" required>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i>Consultar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="loading" class="loading hidden"></div>
+        <div id="error" class="alert alert-danger hidden" role="alert"></div>
+        
+        <div id="resultado" class="hidden">
+            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab">
+                        <i class="fas fa-info-circle me-2"></i>Informações Básicas
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="atividades-tab" data-bs-toggle="tab" data-bs-target="#atividades" type="button" role="tab">
+                        <i class="fas fa-briefcase me-2"></i>Atividades
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="socios-tab" data-bs-toggle="tab" data-bs-target="#socios" type="button" role="tab">
+                        <i class="fas fa-users me-2"></i>Quadro Societário
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="regimes-tab" data-bs-toggle="tab" data-bs-target="#regimes" type="button" role="tab">
+                        <i class="fas fa-file-invoice-dollar me-2"></i>Regimes Especiais
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="myTabContent">
+                <!-- Informações Básicas -->
+                <div class="tab-pane fade show active" id="info" role="tabpanel">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="section-title">
+                                        <i class="fas fa-building me-2"></i>Dados da Empresa
+                                    </h5>
+                                    <div class="mb-3">
+                                        <span class="info-label">CNPJ:</span>
+                                        <span class="info-value" id="info-cnpj"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">Razão Social:</span>
+                                        <span class="info-value" id="info-razao-social"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">Nome Fantasia:</span>
+                                        <span class="info-value" id="info-nome-fantasia"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">Tipo:</span>
+                                        <span class="info-value" id="info-tipo"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">Porte:</span>
+                                        <span class="info-value" id="info-porte"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">Natureza Jurídica:</span>
+                                        <span class="info-value" id="info-natureza"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">Data de Abertura:</span>
+                                        <span class="info-value" id="info-abertura"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">Capital Social:</span>
+                                        <span class="info-value" id="info-capital"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="section-title">
+                                        <i class="fas fa-map-marker-alt me-2"></i>Endereço
+                                    </h5>
+                                    <div class="mb-3">
+                                        <span class="info-label">Logradouro:</span>
+                                        <span class="info-value" id="info-logradouro"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">Número:</span>
+                                        <span class="info-value" id="info-numero"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">Complemento:</span>
+                                        <span class="info-value" id="info-complemento"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">Bairro:</span>
+                                        <span class="info-value" id="info-bairro"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">Município:</span>
+                                        <span class="info-value" id="info-municipio"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">UF:</span>
+                                        <span class="info-value" id="info-uf"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">CEP:</span>
+                                        <span class="info-value" id="info-cep"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card mt-3">
+                                <div class="card-body">
+                                    <h5 class="section-title">
+                                        <i class="fas fa-phone me-2"></i>Contato
+                                    </h5>
+                                    <div class="mb-3">
+                                        <span class="info-label">Telefone:</span>
+                                        <span class="info-value" id="info-telefone"></span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="info-label">Email:</span>
+                                        <span class="info-value" id="info-email"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Atividades -->
+                <div class="tab-pane fade" id="atividades" role="tabpanel">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="section-title">
+                                <i class="fas fa-star me-2"></i>Atividade Principal
+                            </h5>
+                            <div id="atividade-principal"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="section-title">
+                                <i class="fas fa-list me-2"></i>Atividades Secundárias
+                            </h5>
+                            <div id="atividades-secundarias"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quadro Societário -->
+                <div class="tab-pane fade" id="socios" role="tabpanel">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="section-title">
+                                <i class="fas fa-users me-2"></i>Sócios
+                            </h5>
+                            <div id="lista-socios"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Regimes Especiais -->
+                <div class="tab-pane fade" id="regimes" role="tabpanel">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="section-title">
+                                <i class="fas fa-file-invoice-dollar me-2"></i>Simples Nacional
+                            </h5>
+                            <div class="mb-3">
+                                <span class="info-label">Optante pelo Simples:</span>
+                                <span class="info-value" id="info-simples"></span>
+                            </div>
+                            <div class="mb-3">
+                                <span class="info-label">Data de Opção:</span>
+                                <span class="info-value" id="info-data-simples"></span>
+                            </div>
+                            <div class="mb-3">
+                                <span class="info-label">Data de Exclusão:</span>
+                                <span class="info-value" id="info-exclusao-simples"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="section-title">
+                                <i class="fas fa-user-tie me-2"></i>MEI
+                            </h5>
+                            <div class="mb-3">
+                                <span class="info-label">Optante pelo MEI:</span>
+                                <span class="info-value" id="info-mei"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metadados -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5 class="section-title">
+                        <i class="fas fa-info-circle me-2"></i>Metadados da Consulta
+                    </h5>
+                    <div class="metadata">
+                        <div class="mb-2">
+                            <span class="info-label">Início da Consulta:</span>
+                            <span class="info-value" id="meta-inicio"></span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="info-label">Fim da Consulta:</span>
+                            <span class="info-value" id="meta-fim"></span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="info-label">Duração:</span>
+                            <span class="info-value" id="meta-duracao"></span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="info-label">Status:</span>
+                            <span class="info-value" id="meta-status"></span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="info-label">Mensagem:</span>
+                            <span class="info-value" id="meta-mensagem"></span>
+                        </div>
+                        <div>
+                            <span class="info-label">Billing:</span>
+                            <span class="info-value" id="meta-billing"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Máscara para o CNPJ
+            $('#cnpj').mask('00.000.000/0000-00');
+
+            // Função para formatar moeda
+            function formatMoney(value) {
+                return new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                }).format(value);
+            }
+
+            // Função para formatar data
+            function formatDate(dateStr) {
+                if (!dateStr) return 'Não informado';
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('pt-BR');
+            }
+
+            // Função para mostrar/esconder elementos
+            function toggleElements(loading = false, error = false, result = false) {
+                $('#loading').toggleClass('hidden', !loading);
+                $('#error').toggleClass('hidden', !error);
+                $('#resultado').toggleClass('hidden', !result);
+            }
+
+            // Manipulador do formulário
+            $('#consultaForm').on('submit', function(e) {
+                e.preventDefault();
+                
+                const cnpj = $('#cnpj').val();
+                toggleElements(true, false, false);
+
+                $.ajax({
+                    url: '/consultar',
+                    method: 'POST',
+                    data: { cnpj },
+                    success: function(response) {
+                        const { company, metadata } = response;
+
+                        // Informações Básicas
+                        $('#info-cnpj').text(company.basic.cnpj);
+                        $('#info-razao-social').text(company.basic.razao_social);
+                        $('#info-nome-fantasia').text(company.basic.nome_fantasia || 'Não informado');
+                        $('#info-tipo').text(company.basic.tipo);
+                        $('#info-porte').text(company.basic.porte);
+                        $('#info-natureza').text(company.basic.natureza_juridica);
+                        $('#info-abertura').text(formatDate(company.basic.abertura));
+                        $('#info-capital').text(formatMoney(company.basic.capital_social));
+
+                        // Endereço
+                        $('#info-logradouro').text(company.address.logradouro);
+                        $('#info-numero').text(company.address.numero);
+                        $('#info-complemento').text(company.address.complemento || 'Não informado');
+                        $('#info-bairro').text(company.address.bairro);
+                        $('#info-municipio').text(company.address.municipio);
+                        $('#info-uf').text(company.address.uf);
+                        $('#info-cep').text(company.address.cep);
+
+                        // Contato
+                        $('#info-telefone').text(company.contact.telefone || 'Não informado');
+                        $('#info-email').text(company.contact.email || 'Não informado');
+
+                        // Atividades
+                        $('#atividade-principal').html(`
+                            <div class="mb-3">
+                                <span class="badge badge-primary">${company.activities.primary.code}</span>
+                                <span class="ms-2">${company.activities.primary.text}</span>
+                            </div>
+                        `);
+
+                        const atividadesHtml = company.activities.secondary.map(ativ => `
+                            <div class="mb-3">
+                                <span class="badge badge-primary">${ativ.code}</span>
+                                <span class="ms-2">${ativ.text}</span>
+                            </div>
+                        `).join('');
+                        $('#atividades-secundarias').html(atividadesHtml);
+
+                        // Sócios
+                        const sociosHtml = company.partners.map(socio => `
+                            <div class="socio-card">
+                                <div class="mb-2">
+                                    <span class="info-label">Nome:</span>
+                                    <span class="info-value">${socio.nome}</span>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="info-label">Qualificação:</span>
+                                    <span class="info-value">${socio.qualificacao}</span>
+                                </div>
+                                <div>
+                                    <span class="info-label">País de Origem:</span>
+                                    <span class="info-value">${socio.pais_origem || 'Brasil'}</span>
+                                </div>
+                            </div>
+                        `).join('');
+                        $('#lista-socios').html(sociosHtml || '<p>Nenhum sócio encontrado</p>');
+
+                        // Regimes Especiais
+                        $('#info-simples').text(company.special_regimes.simples.optante_simples ? 'Sim' : 'Não');
+                        $('#info-data-simples').text(formatDate(company.special_regimes.simples.data_opcao_simples));
+                        $('#info-exclusao-simples').text(formatDate(company.special_regimes.simples.data_exclusao_simples));
+                        $('#info-mei').text(company.special_regimes.mei.optante_mei ? 'Sim' : 'Não');
+
+                        // Metadados
+                        $('#meta-inicio').text(metadata.start_time);
+                        $('#meta-fim').text(metadata.end_time);
+                        $('#meta-duracao').text(`${metadata.duration.toFixed(2)} segundos`);
+                        $('#meta-status').text(metadata.status);
+                        $('#meta-mensagem').text(metadata.message);
+                        $('#meta-billing').text(JSON.stringify(metadata.billing));
+
+                        toggleElements(false, false, true);
+                    },
+                    error: function(xhr) {
+                        const errorMessage = xhr.responseJSON?.message || 'Erro ao consultar CNPJ';
+                        $('#error').text(errorMessage).removeClass('hidden');
+                        toggleElements(false, true, false);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html> 

@@ -13,26 +13,26 @@ def index():
 def consultar_cnpj():
     cnpj = request.form.get('cnpj', '').strip()
     
-    # Remove caracteres não numéricos para a consulta
+    
     cnpj_limpo = re.sub(r'[^0-9]', '', cnpj)
     
     try:
-        # Faz a consulta na API com parâmetros adicionais
+        
         url = f'https://receitaws.com.br/v1/cnpj/{cnpj_limpo}'
         headers = {
             'Accept': 'application/json'
         }
         params = {
-            'days': '0',  # Dados mais recentes
-            'fallback': 'cacheOnError'  # Usa cache em caso de erro
+            'days': '0',  
+            'fallback': 'cacheOnError'  
         }
         
-        # Registra o horário de início da consulta
+        
         start_time = datetime.now().isoformat()
         
         response = requests.get(url, headers=headers, params=params)
         
-        # Registra o horário de fim da consulta
+        
         end_time = datetime.now().isoformat()
         
         if response.status_code == 429:
@@ -60,8 +60,7 @@ def consultar_cnpj():
                 'error': True,
                 'message': data.get('message', 'Erro ao consultar CNPJ')
             })
-        
-        # Formata os dados para melhor apresentação
+       
         formatted_data = {
             'informacoes_basicas': {
                 'cnpj': data.get('cnpj', ''),
@@ -107,7 +106,7 @@ def consultar_cnpj():
             }
         }
         
-        # Adiciona metadados da consulta
+        
         metadata = {
             'status': 'OK',
             'consulta': {
